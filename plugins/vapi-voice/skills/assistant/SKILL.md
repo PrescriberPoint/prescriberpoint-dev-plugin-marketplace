@@ -34,25 +34,42 @@ echo '<json>' | node ${CLAUDE_PLUGIN_ROOT}/scripts/create-assistant.js --stdin
 
 ## Assistant Architecture
 
-### Core Components
+### Core Components (Outbound Call Optimized)
 ```json
 {
   "name": "AssistantName",
+  "firstMessageMode": "assistant-waits-for-user",
+  "firstMessage": "Hello, I'm calling from...",
   "model": {
     "provider": "openai",
-    "model": "gpt-4o",
+    "model": "gpt-4o-mini",
     "messages": [{"role": "system", "content": "..."}],
-    "tools": [],
     "temperature": 0.3
   },
   "voice": {
     "provider": "elevenlabs",
-    "voiceId": "voice-id"
+    "voiceId": "voice-id",
+    "stability": 0.6,
+    "similarityBoost": 0.75,
+    "speed": 0.95
   },
-  "firstMessage": "Opening greeting",
-  "endCallPhrases": ["goodbye", "thank you"],
-  "maxDurationSeconds": 900,
-  "silenceTimeoutSeconds": 30
+  "tools": [
+    { "type": "endCall" },
+    { "type": "dtmf" },
+    { "type": "transferCall", "destinations": [] }
+  ],
+  "startSpeakingPlan": {
+    "smartEndpointingPlan": { "provider": "livekit" },
+    "waitSeconds": 0.6
+  },
+  "stopSpeakingPlan": {
+    "numWords": 2,
+    "voiceSeconds": 0.3,
+    "backoffSeconds": 1.5
+  },
+  "maxDurationSeconds": 1800,
+  "silenceTimeoutSeconds": 30,
+  "hipaaEnabled": true
 }
 ```
 

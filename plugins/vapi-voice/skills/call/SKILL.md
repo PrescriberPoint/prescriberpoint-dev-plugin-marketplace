@@ -41,264 +41,279 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/list-calls.js --limit 10
 
 **Before configuring a call**, run `list-phone-numbers` to get valid phoneNumberId values and `list-voices` to show available voice options.
 
-## VAPI API Overview
+## Critical Configuration for Outbound Calls
 
-**Endpoint**: `POST https://api.vapi.ai/call`
-**Auth**: `Authorization: Bearer <VAPI_API_KEY>`
+### 1. Wait for Human to Speak First
 
-### Basic Call Structure
+**ALWAYS set `firstMessageMode` to `"assistant-waits-for-user"` for outbound calls.** This prevents the AI from speaking before the person answers or talks over their greeting.
+
 ```json
 {
-  "assistant": { /* transient assistant config */ },
-  "phoneNumberId": "your-vapi-phone-id",
+  "firstMessageMode": "assistant-waits-for-user",
+  "firstMessage": "Hello, I'm calling from Dr. Smith's office regarding a prescription."
+}
+```
+
+Options:
+- `"assistant-waits-for-user"` - **Use for outbound calls** - waits for human to speak first
+- `"assistant-speaks-first"` - AI speaks immediately (for inbound calls)
+- `"assistant-speaks-first-with-model-generated-message"` - AI generates first message
+
+### 2. Required Default Tools
+
+**Always include these tools** for proper call control:
+
+```json
+{
+  "tools": [
+    { "type": "endCall" },
+    { "type": "dtmf" },
+    {
+      "type": "transferCall",
+      "destinations": [
+        {
+          "type": "number",
+          "number": "+1XXXXXXXXXX",
+          "description": "Transfer to human staff when needed"
+        }
+      ]
+    }
+  ]
+}
+```
+
+- **endCall**: Allows AI to hang up appropriately
+- **dtmf**: Send keypad tones for IVR navigation
+- **transferCall**: Hand off to human when needed
+
+### 3. Model Selection (Low Latency + High Performance)
+
+| Model | Provider | Latency | Quality | Use Case |
+|-------|----------|---------|---------|----------|
+| `gpt-4o-mini` | openai | Fast | Good | Simple tasks, IVR navigation |
+| `gpt-4o` | openai | Medium | Excellent | Complex conversations, nuanced tasks |
+| `llama-3.1-70b-versatile` | groq | Very Fast | Good | Speed-critical applications |
+| `llama-3.1-8b-instant` | groq | Ultra Fast | Moderate | Maximum speed, simpler tasks |
+
+**Recommended for healthcare calls**: `gpt-4o-mini` balances speed and quality.
+
+```json
+{
+  "model": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.3,
+    "messages": [{ "role": "system", "content": "..." }]
+  }
+}
+```
+
+### 4. Conversation Flow Settings (Prevent Talking Over)
+
+**Start Speaking Plan** - When to begin responding:
+```json
+{
+  "startSpeakingPlan": {
+    "smartEndpointingPlan": {
+      "provider": "livekit"
+    },
+    "waitSeconds": 0.6
+  }
+}
+```
+
+- `provider: "livekit"` - Best for English, detects natural speech patterns
+- `waitSeconds: 0.6` - Slight delay after detected end-of-speech (0.4-0.8 recommended)
+
+**Stop Speaking Plan** - Handle interruptions gracefully:
+```json
+{
+  "stopSpeakingPlan": {
+    "numWords": 2,
+    "voiceSeconds": 0.3,
+    "backoffSeconds": 1.5
+  }
+}
+```
+
+- `numWords: 2` - Wait for 2 words before stopping (prevents false triggers)
+- `voiceSeconds: 0.3` - How long human must speak to trigger interruption
+- `backoffSeconds: 1.5` - Pause before AI resumes after interruption
+
+### 5. Voice Configuration
+
+```json
+{
+  "voice": {
+    "provider": "elevenlabs",
+    "voiceId": "21m00Tcm4TlvDq8ikWAM",
+    "stability": 0.6,
+    "similarityBoost": 0.75,
+    "speed": 0.95
+  }
+}
+```
+
+- `stability: 0.5-0.7` - Higher = more consistent, lower = more expressive
+- `similarityBoost: 0.7-0.8` - Voice clarity
+- `speed: 0.9-1.0` - Slightly slower for clarity on phone calls
+
+### 6. Timing Configuration
+
+```json
+{
+  "maxDurationSeconds": 1800,
+  "silenceTimeoutSeconds": 30,
+  "responseDelaySeconds": 0.5
+}
+```
+
+- `maxDurationSeconds`: Max call length (1800 = 30 min for hold times)
+- `silenceTimeoutSeconds`: Hang up after this much silence (30s reasonable)
+- `responseDelaySeconds`: Delay before responding (prevents cutting off)
+
+## Complete Outbound Call Template
+
+```json
+{
+  "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
   "customer": {
     "number": "+1XXXXXXXXXX",
-    "name": "Optional contact name"
-  }
-}
-```
-
-### Using Saved vs Transient Assistants
-- **Transient** (`assistant`): Define inline for one-time or dynamic calls
-- **Saved** (`assistantId`): Reference pre-configured assistant by ID
-
-## Healthcare Call Scenarios
-
-### 1. Pharmacy Calls
-**Common tasks**: Prescription status, refill requests, transfer requests, prior auth status
-```json
-{
+    "name": "Target Organization"
+  },
   "assistant": {
+    "name": "HealthcareAdmin",
+    "firstMessageMode": "assistant-waits-for-user",
+    "firstMessage": "Hello, I'm calling from [PROVIDER]'s office regarding [PURPOSE].",
     "model": {
       "provider": "openai",
-      "model": "gpt-4o",
+      "model": "gpt-4o-mini",
+      "temperature": 0.3,
       "messages": [{
         "role": "system",
-        "content": "You are calling [PHARMACY] on behalf of [PROVIDER] regarding patient [PATIENT_ID]. Your task is to check the status of prescription [RX_NUMBER]. Navigate any IVR by selecting options for 'pharmacy staff' or 'prescription status'. When connected to a person, identify yourself as calling from [PROVIDER], provide the prescription number, and request the current fill status and any issues. Document: fill status, expected ready date, any problems, and next steps required."
+        "content": "You are a healthcare administrative assistant. [TASK DETAILS]\n\nCONVERSATION GUIDELINES:\n- Wait for the other person to finish speaking before responding\n- Keep responses concise and professional\n- If you don't understand, ask for clarification\n- Speak clearly and at a measured pace\n\nIVR NAVIGATION:\n- Use the dtmf tool to press keypad buttons\n- Listen to full menu before selecting\n- Say 'representative' if stuck in a loop\n\nTASK COMPLETION:\n- Use endCall tool when task is complete\n- Use transferCall if human intervention needed"
       }]
     },
-    "firstMessage": "Hello, I'm calling from [PROVIDER]'s office regarding a prescription.",
     "voice": {
       "provider": "elevenlabs",
-      "voiceId": "professional-female-1"
+      "voiceId": "21m00Tcm4TlvDq8ikWAM",
+      "stability": 0.6,
+      "similarityBoost": 0.75,
+      "speed": 0.95
     },
-    "endCallPhrases": ["goodbye", "have a nice day", "call complete"]
-  }
-}
-```
-
-### 2. Insurance/PBM Calls
-**Common tasks**: Benefits verification, prior authorization status, claims status, appeals
-```json
-{
-  "assistant": {
-    "model": {
-      "provider": "openai",
-      "model": "gpt-4o",
-      "messages": [{
-        "role": "system",
-        "content": "You are calling [INSURANCE_COMPANY] on behalf of [PROVIDER] for patient [PATIENT_ID] (DOB: [DOB], Member ID: [MEMBER_ID]). Task: [SPECIFIC_TASK]. Navigate IVR to reach provider services or prior authorization department. Be prepared to provide: NPI [NPI], Tax ID [TAX_ID], patient demographics. Document: reference numbers, status, required actions, timelines, and representative name/ID."
-      }]
-    },
-    "firstMessage": "Hello, I'm calling from a healthcare provider's office regarding a patient inquiry."
-  }
-}
-```
-
-### 3. Hub Services / Specialty Pharmacy
-**Common tasks**: Enrollment status, shipment tracking, reauthorization, patient support
-```json
-{
-  "assistant": {
-    "model": {
-      "provider": "openai",
-      "model": "gpt-4o",
-      "messages": [{
-        "role": "system",
-        "content": "You are calling [HUB_SERVICE] patient support for [DRUG_NAME]. Patient: [PATIENT_ID]. Task: [CHECK_ENROLLMENT/SHIPMENT/REAUTH]. Navigate to patient services. Verify patient identity when asked. Document: enrollment status, next shipment date, any required actions, case number, and representative details."
-      }]
-    }
-  }
-}
-```
-
-## IVR Navigation Strategies
-
-### Prompt Engineering for IVR
-Include explicit IVR instructions in the system prompt:
-```
-IVR NAVIGATION RULES:
-- Listen carefully to all menu options before selecting
-- For pharmacy: typically press 1 for prescriptions, 2 for pharmacy staff
-- For insurance: press 0 or say "representative" to reach a human
-- For "press or say": prefer speaking the option clearly
-- If asked for account/member number, speak digits slowly with pauses
-- If stuck in a loop, try saying "agent" or "representative"
-- Document the path taken for future reference
-```
-
-### Handling Hold Times
-```json
-{
-  "assistant": {
-    "model": {
-      "messages": [{
-        "role": "system",
-        "content": "... HOLD BEHAVIOR: When placed on hold, wait patiently. Do not hang up. If hold music or messages play, remain silent and wait. If asked 'are you still there?' respond 'Yes, I'm still here.' Maximum hold time: 30 minutes before noting callback needed."
-      }]
-    },
-    "maxDurationSeconds": 1800,
-    "silenceTimeoutSeconds": 120
-  }
-}
-```
-
-### DTMF Tone Generation
-For IVR systems requiring keypad input:
-```json
-{
-  "assistant": {
-    "model": {
-      "tools": [{
-        "type": "dtmf",
-        "function": {
-          "name": "send_dtmf",
-          "description": "Send DTMF tones to navigate phone menus",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "digits": {"type": "string", "description": "Digits to send (0-9, *, #)"}
-            }
-          }
-        }
-      }]
-    }
-  }
-}
-```
-
-## Call Transfer Configuration
-
-### Transfer to Human
-When the AI needs to hand off to a human staff member:
-```json
-{
-  "assistant": {
-    "model": {
-      "tools": [{
+    "tools": [
+      { "type": "endCall" },
+      { "type": "dtmf" },
+      {
         "type": "transferCall",
         "destinations": [{
           "type": "number",
           "number": "+1XXXXXXXXXX",
-          "message": "I'm transferring you to our staff member who can complete this request."
-        }]
-      }]
-    }
-  }
-}
-```
-
-### Transfer Triggers
-Add to system prompt:
-```
-TRANSFER TO HUMAN WHEN:
-- Sensitive patient information beyond basic demographics is requested
-- The representative requests to speak with a licensed professional
-- Complex clinical questions arise that require provider judgment
-- The task cannot be completed and requires escalation
-- Explicit request for human contact
-
-Before transferring, summarize: current status, information gathered, what remains to be done.
-```
-
-## Disposition & Outcome Tracking
-
-### Structured Output for Call Results
-```json
-{
-  "assistant": {
-    "model": {
-      "messages": [{
-        "role": "system",
-        "content": "... At call end, compile a structured summary: DISPOSITION: [COMPLETED/CALLBACK_NEEDED/TRANSFERRED/FAILED], OUTCOME: [detailed result], REFERENCE_NUMBERS: [any case/auth numbers], ACTION_ITEMS: [next steps], CALL_DURATION: [time], REPRESENTATIVE: [name/ID if provided]"
-      }]
-    },
-    "analysisPlan": {
-      "summaryPlan": {
-        "messages": [{
-          "role": "system",
-          "content": "Extract: disposition, outcome, reference_numbers, action_items, representative_info"
+          "description": "Transfer to staff"
         }]
       }
-    }
+    ],
+    "startSpeakingPlan": {
+      "smartEndpointingPlan": {
+        "provider": "livekit"
+      },
+      "waitSeconds": 0.6
+    },
+    "stopSpeakingPlan": {
+      "numWords": 2,
+      "voiceSeconds": 0.3,
+      "backoffSeconds": 1.5
+    },
+    "maxDurationSeconds": 1800,
+    "silenceTimeoutSeconds": 30,
+    "hipaaEnabled": true
   }
 }
 ```
 
-### Webhook for Results
-```json
-{
-  "assistant": {
-    "serverUrl": "https://your-server.com/vapi/webhook",
-    "serverMessages": ["end-of-call-report", "status-update", "transfer-destination-request"]
-  }
-}
-```
+## Healthcare Call Scenarios
 
-## Compliance Considerations
-
-### HIPAA-Aware Prompting
-```
-COMPLIANCE RULES:
-- Only provide minimum necessary patient information
-- Verify you are speaking with appropriate party before sharing PHI
-- Do not leave PHI in voicemails unless explicitly authorized
-- Document who received information and their verification
-- If call is recorded by the other party, note this in disposition
-```
-
-### Consent & Legal
-- Ensure proper consent for automated calling
-- Comply with TCPA regulations for automated calls
-- Document consent status in call metadata
-
-## Example: Complete Pharmacy Status Check Call
+### Benefits Verification Call
 
 ```json
 {
-  "phoneNumberId": "pn_abc123",
-  "customer": {
-    "number": "+18005551234",
-    "name": "CVS Pharmacy - Main St"
-  },
   "assistant": {
-    "name": "PharmacyStatusChecker",
+    "firstMessageMode": "assistant-waits-for-user",
+    "firstMessage": "Hello, I'm calling from a healthcare provider's office to verify benefits for a patient.",
     "model": {
       "provider": "openai",
-      "model": "gpt-4o",
+      "model": "gpt-4o-mini",
+      "temperature": 0.2,
       "messages": [{
         "role": "system",
-        "content": "You are a healthcare administrative assistant calling CVS Pharmacy on behalf of Dr. Smith's office (NPI: 1234567890) regarding patient John Doe (DOB: 01/15/1980).\n\nTASK: Check status of prescription RX#7654321 for Lisinopril 10mg.\n\nIVR NAVIGATION:\n- If prompted, select 'prescription status' or 'pharmacy staff'\n- Press 0 or say 'pharmacist' if menu doesn't have clear option\n- Be prepared to provide RX number and patient DOB for verification\n\nWHEN CONNECTED TO STAFF:\n1. Identify yourself: 'Hi, I'm calling from Dr. Smith's office'\n2. State purpose: 'Checking on prescription status for a patient'\n3. Provide: Patient name, DOB, RX number when asked\n4. Ask: Current status, when it will be ready, any issues\n\nDOCUMENT:\n- Fill status (ready/processing/problem)\n- Expected ready date/time\n- Any issues (insurance, stock, requires auth)\n- Pharmacy staff name\n- Recommended next steps\n\nTRANSFER TO HUMAN IF:\n- Clinical questions requiring pharmacist-to-provider discussion\n- Insurance issues requiring provider authorization\n- Patient safety concerns\n\nKeep responses professional and concise. Maximum call duration: 15 minutes."
+        "content": "You are verifying insurance benefits for patient [NAME] (DOB: [DOB], Member ID: [ID]).\n\nINFORMATION TO GATHER:\n- Eligibility status and effective dates\n- Copay and coinsurance amounts\n- Deductible status (met/remaining)\n- Prior authorization requirements\n- In-network status\n\nVERIFICATION INFO YOU HAVE:\n- Patient: [NAME], DOB: [DOB]\n- Member ID: [ID], Group: [GROUP]\n- Provider NPI: [NPI]\n\nCONVERSATION STYLE:\n- Be patient and professional\n- Speak member ID and numbers clearly, one digit at a time\n- Confirm information read back to you\n- Ask for reference number at end of call\n\nUse endCall when verification is complete.\nUse transferCall if they need to speak with the provider directly."
       }]
     },
-    "firstMessage": "Hello, I'm calling from Dr. Smith's office regarding a prescription status check.",
-    "voice": {
-      "provider": "elevenlabs",
-      "voiceId": "21m00Tcm4TlvDq8ikWAM"
-    },
-    "maxDurationSeconds": 900,
-    "silenceTimeoutSeconds": 60,
-    "endCallPhrases": ["goodbye", "thank you for calling", "have a good day"],
-    "serverUrl": "https://your-webhook.com/vapi/pharmacy-calls"
+    "tools": [
+      { "type": "endCall" },
+      { "type": "dtmf" },
+      { "type": "transferCall", "destinations": [{ "type": "number", "number": "+1XXXXXXXXXX" }] }
+    ],
+    "startSpeakingPlan": { "smartEndpointingPlan": { "provider": "livekit" }, "waitSeconds": 0.6 },
+    "stopSpeakingPlan": { "numWords": 2, "voiceSeconds": 0.3, "backoffSeconds": 1.5 },
+    "hipaaEnabled": true
   }
 }
+```
+
+### Pharmacy Status Check
+
+```json
+{
+  "assistant": {
+    "firstMessageMode": "assistant-waits-for-user",
+    "firstMessage": "Hi, I'm calling from Dr. Smith's office to check on a prescription status.",
+    "model": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "temperature": 0.3,
+      "messages": [{
+        "role": "system",
+        "content": "You are checking prescription status for patient [NAME] (DOB: [DOB]), prescription [RX_NUMBER].\n\nGATHER:\n- Fill status (ready, processing, problem)\n- Expected ready date/time\n- Any issues (insurance, stock, requires auth)\n\nIVR NAVIGATION:\n- Press options for 'prescription status' or 'pharmacy staff'\n- Use dtmf tool for keypad entry\n- Say 'pharmacist' or 'representative' if needed\n\nWHEN SPEAKING TO STAFF:\n- Identify as calling from Dr. Smith's office\n- Provide patient name, DOB, RX number when asked\n- Ask about current status and any issues\n\nUse endCall when you have the information needed."
+      }]
+    },
+    "tools": [
+      { "type": "endCall" },
+      { "type": "dtmf" },
+      { "type": "transferCall", "destinations": [{ "type": "number", "number": "+1XXXXXXXXXX" }] }
+    ],
+    "startSpeakingPlan": { "smartEndpointingPlan": { "provider": "livekit" }, "waitSeconds": 0.5 },
+    "stopSpeakingPlan": { "numWords": 2, "voiceSeconds": 0.3, "backoffSeconds": 1.0 }
+  }
+}
+```
+
+## Prompt Guidelines for Natural Conversation
+
+Add these guidelines to system prompts to improve conversation flow:
+
+```
+CONVERSATION STYLE:
+- Wait for the other person to finish speaking completely before responding
+- Keep responses brief and to the point (under 30 words when possible)
+- If interrupted, stop speaking immediately and listen
+- Use natural acknowledgments like "I see" or "Got it" sparingly
+- Avoid filler words and false starts
+- If you don't understand, say "I'm sorry, could you repeat that?"
+- Speak numbers one digit at a time with brief pauses
+- Don't repeat information unless asked to confirm
+
+PHONE ETIQUETTE:
+- Greet professionally when the person speaks
+- State your purpose clearly and concisely
+- Thank them for their help at the end
+- End with a professional closing like "Thank you for your assistance"
 ```
 
 ## Response Format
 
 When helping configure a call, provide:
-1. **Call Configuration**: Complete JSON for the VAPI API
-2. **System Prompt**: Detailed instructions for the assistant
-3. **IVR Strategy**: Expected menu navigation
-4. **Transfer Rules**: When to hand off to humans
-5. **Expected Outcomes**: What dispositions to track
+1. **Complete JSON configuration** ready for VAPI API with all required settings
+2. **Explanation** of key configuration choices
+3. **System prompt** tailored to the specific task
+4. **Expected call flow** step by step
