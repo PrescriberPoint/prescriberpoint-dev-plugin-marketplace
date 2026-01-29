@@ -310,10 +310,193 @@ PHONE ETIQUETTE:
 - End with a professional closing like "Thank you for your assistance"
 ```
 
+## Call Planning: Success Criteria & Structured Outputs
+
+**Always establish success criteria and data extraction requirements when planning a call.**
+
+### Analysis Plan Configuration
+
+Configure how the call will be evaluated after completion:
+
+```json
+{
+  "analysisPlan": {
+    "summaryPrompt": "Summarize this healthcare administrative call, including: the purpose of the call, key information exchanged, outcome, and any follow-up actions required.",
+
+    "successEvaluationPrompt": "Evaluate if the call achieved its objective. Consider: Was the requested information obtained? Were all required data points gathered? Was the call handled professionally?",
+    "successEvaluationRubric": "PassFail",
+
+    "structuredDataPrompt": "Extract the key data from this call.",
+    "structuredDataSchema": {
+      "type": "object",
+      "properties": {
+        "callObjective": { "type": "string" },
+        "objectiveMet": { "type": "boolean" },
+        "dataGathered": { "type": "object" },
+        "followUpRequired": { "type": "boolean" },
+        "followUpActions": { "type": "array", "items": { "type": "string" } },
+        "representativeName": { "type": "string" },
+        "referenceNumber": { "type": "string" }
+      },
+      "required": ["callObjective", "objectiveMet"]
+    }
+  }
+}
+```
+
+### Success Evaluation Rubrics
+
+| Rubric | Use Case |
+|--------|----------|
+| `PassFail` | Simple yes/no objective completion |
+| `NumericScale` | 1-10 rating for quality/completeness |
+| `DescriptiveScale` | Qualitative assessment (Poor/Fair/Good/Excellent) |
+| `Checklist` | Multiple criteria to evaluate |
+| `PercentageScale` | 0-100% completion score |
+
+### Structured Data Examples by Call Type
+
+**Benefits Verification:**
+```json
+{
+  "structuredDataSchema": {
+    "type": "object",
+    "properties": {
+      "eligibilityStatus": { "type": "string", "enum": ["active", "inactive", "pending"] },
+      "effectiveDate": { "type": "string" },
+      "terminationDate": { "type": "string" },
+      "copay": { "type": "number" },
+      "coinsurance": { "type": "number" },
+      "deductibleMet": { "type": "number" },
+      "deductibleRemaining": { "type": "number" },
+      "priorAuthRequired": { "type": "boolean" },
+      "inNetwork": { "type": "boolean" },
+      "referenceNumber": { "type": "string" },
+      "representativeId": { "type": "string" }
+    },
+    "required": ["eligibilityStatus", "referenceNumber"]
+  }
+}
+```
+
+**Pharmacy Status Check:**
+```json
+{
+  "structuredDataSchema": {
+    "type": "object",
+    "properties": {
+      "prescriptionStatus": { "type": "string", "enum": ["ready", "processing", "on_hold", "problem", "transferred"] },
+      "expectedReadyDate": { "type": "string" },
+      "issues": { "type": "array", "items": { "type": "string" } },
+      "pharmacistName": { "type": "string" },
+      "actionRequired": { "type": "string" }
+    },
+    "required": ["prescriptionStatus"]
+  }
+}
+```
+
+**Prior Authorization Status:**
+```json
+{
+  "structuredDataSchema": {
+    "type": "object",
+    "properties": {
+      "authorizationStatus": { "type": "string", "enum": ["approved", "denied", "pending", "in_review", "additional_info_needed"] },
+      "authorizationNumber": { "type": "string" },
+      "denialReason": { "type": "string" },
+      "appealDeadline": { "type": "string" },
+      "peerToPeerAvailable": { "type": "boolean" },
+      "requiredActions": { "type": "array", "items": { "type": "string" } },
+      "referenceNumber": { "type": "string" }
+    },
+    "required": ["authorizationStatus"]
+  }
+}
+```
+
+### HIPAA Compliance Note
+
+When `hipaaEnabled: true`, structured outputs are NOT stored by default. To retrieve them:
+- Use webhooks to receive data in real-time
+- Or set `compliancePlan.forceStoreOnHipaaEnabled: true` for non-PHI data only
+
+## Post-Call Scripts
+
+After a call completes, use these scripts to retrieve results:
+
+```bash
+# Get the full transcript
+node ${CLAUDE_PLUGIN_ROOT}/scripts/get-transcript.js <call-id>
+
+# Get analysis, success evaluation, and structured data
+node ${CLAUDE_PLUGIN_ROOT}/scripts/get-analysis.js <call-id>
+
+# Get cost breakdown
+node ${CLAUDE_PLUGIN_ROOT}/scripts/get-cost.js <call-id>
+```
+
+## Complete Call Configuration with Success Planning
+
+```json
+{
+  "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
+  "customer": {
+    "number": "+1XXXXXXXXXX",
+    "name": "Target Organization"
+  },
+  "assistant": {
+    "name": "BenefitsVerifier",
+    "firstMessageMode": "assistant-waits-for-user",
+    "firstMessage": "Hello, I'm calling from a healthcare provider's office to verify benefits for a patient.",
+    "model": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "temperature": 0.2,
+      "messages": [{ "role": "system", "content": "..." }]
+    },
+    "voice": {
+      "provider": "elevenlabs",
+      "voiceId": "...",
+      "stability": 0.6,
+      "speed": 0.95
+    },
+    "tools": [
+      { "type": "endCall" },
+      { "type": "dtmf" },
+      { "type": "transferCall", "destinations": [] }
+    ],
+    "startSpeakingPlan": { "smartEndpointingPlan": { "provider": "livekit" }, "waitSeconds": 0.6 },
+    "stopSpeakingPlan": { "numWords": 2, "voiceSeconds": 0.3, "backoffSeconds": 1.5 },
+    "analysisPlan": {
+      "summaryPrompt": "Summarize this benefits verification call including: patient verified, benefits gathered, any issues encountered.",
+      "successEvaluationPrompt": "Did the call successfully verify patient benefits? Were eligibility status, copay, deductible, and prior auth requirements obtained?",
+      "successEvaluationRubric": "PassFail",
+      "structuredDataSchema": {
+        "type": "object",
+        "properties": {
+          "eligibilityStatus": { "type": "string" },
+          "copay": { "type": "number" },
+          "deductibleRemaining": { "type": "number" },
+          "priorAuthRequired": { "type": "boolean" },
+          "referenceNumber": { "type": "string" }
+        },
+        "required": ["eligibilityStatus"]
+      }
+    },
+    "maxDurationSeconds": 1800,
+    "silenceTimeoutSeconds": 30,
+    "hipaaEnabled": true
+  }
+}
+```
+
 ## Response Format
 
 When helping configure a call, provide:
-1. **Complete JSON configuration** ready for VAPI API with all required settings
-2. **Explanation** of key configuration choices
-3. **System prompt** tailored to the specific task
-4. **Expected call flow** step by step
+1. **Call Objective**: Clear statement of what the call should accomplish
+2. **Success Criteria**: How to evaluate if the call was successful
+3. **Data to Extract**: Structured data schema for information to gather
+4. **Complete JSON configuration** ready for VAPI API
+5. **System prompt** tailored to the specific task
+6. **Expected call flow** step by step

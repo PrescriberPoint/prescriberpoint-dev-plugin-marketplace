@@ -40,6 +40,9 @@ plugins/vapi-voice/scripts/
 ├── create-call.js        # Create outbound calls
 ├── list-calls.js         # List call history
 ├── get-call.js           # Get call details
+├── get-transcript.js     # Get call transcript
+├── get-analysis.js       # Get call analysis & structured outputs
+├── get-cost.js           # Get call cost breakdown
 ├── create-assistant.js   # Create saved assistants
 ├── list-assistants.js    # List assistants
 ├── list-voices.js        # List available voices
@@ -70,6 +73,15 @@ node scripts/get-call.js <call-id>
 
 # List recent calls
 node scripts/list-calls.js --limit 10
+
+# Get call transcript (after call ends)
+node scripts/get-transcript.js <call-id>
+
+# Get call analysis and structured outputs
+node scripts/get-analysis.js <call-id>
+
+# Get call cost breakdown
+node scripts/get-cost.js <call-id>
 ```
 
 ## Skills
