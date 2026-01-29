@@ -1,0 +1,43 @@
+{
+  "name": "prescriberpoint-plugins",
+  "owner": {
+    "name": "PrescriberPoint",
+    "email": "dev@prescriberpoint.com"
+  },
+  "metadata": {
+    "description": "Official plugin marketplace for PrescriberPoint staff tools and workflows",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "code-review",
+      "source": "./plugins/code-review",
+      "description": "Code review skill for PrescriberPoint development standards",
+      "category": "development"
+    },
+    {
+      "name": "test-engineer",
+      "source": "./plugins/test-engineer",
+      "description": "Automated E2E test development for Node, Python, and .NET with browser automation expertise",
+      "category": "testing"
+    },
+    {
+      "name": "ux-designer",
+      "source": "./plugins/ux-designer",
+      "description": "UX design, audit, and usability testing with visual analysis capabilities",
+      "category": "design"
+    },
+    {
+      "name": "seo-analyst",
+      "source": "./plugins/seo-analyst",
+      "description": "SEO keyword research, content strategy, technical audits, and optimization recommendations",
+      "category": "marketing"
+    },
+    {
+      "name": "vapi-voice",
+      "source": "./plugins/vapi-voice",
+      "description": "VAPI voice AI orchestration for healthcare outbound calls, IVR navigation, and administrative automation",
+      "category": "automation"
+    }
+  ]
+}

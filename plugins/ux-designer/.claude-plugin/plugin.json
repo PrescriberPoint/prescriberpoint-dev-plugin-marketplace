@@ -1,0 +1,9 @@
+{
+  "name": "ux-designer",
+  "description": "UX design, audit, and usability testing with visual analysis capabilities",
+  "version": "1.0.0",
+  "author": {
+    "name": "PrescriberPoint"
+  },
+  "keywords": ["ux", "design", "usability", "accessibility", "visual-testing", "audit"]
+}

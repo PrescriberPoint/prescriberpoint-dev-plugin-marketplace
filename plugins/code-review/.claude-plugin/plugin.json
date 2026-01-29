@@ -1,0 +1,9 @@
+{
+  "name": "code-review",
+  "description": "Code review skill for PrescriberPoint development standards",
+  "version": "1.0.0",
+  "author": {
+    "name": "PrescriberPoint"
+  },
+  "keywords": ["review", "code-quality", "standards"]
+}

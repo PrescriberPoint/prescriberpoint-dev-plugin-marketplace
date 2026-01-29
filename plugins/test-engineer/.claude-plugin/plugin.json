@@ -1,0 +1,9 @@
+{
+  "name": "test-engineer",
+  "description": "Automated E2E test development for Node, Python, and .NET with browser automation expertise",
+  "version": "1.0.0",
+  "author": {
+    "name": "PrescriberPoint"
+  },
+  "keywords": ["testing", "e2e", "playwright", "puppeteer", "automation", "qa"]
+}

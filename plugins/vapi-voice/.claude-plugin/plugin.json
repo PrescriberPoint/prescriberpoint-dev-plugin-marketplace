@@ -1,0 +1,9 @@
+{
+  "name": "vapi-voice",
+  "description": "VAPI voice AI orchestration for healthcare outbound calls, IVR navigation, and administrative task automation",
+  "version": "1.0.0",
+  "author": {
+    "name": "PrescriberPoint"
+  },
+  "keywords": ["vapi", "voice", "ai", "phone", "ivr", "outbound", "healthcare", "automation"]
+}
