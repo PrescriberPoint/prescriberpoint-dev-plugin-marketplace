@@ -8,6 +8,69 @@ VAPI voice AI orchestration for healthcare outbound calls, IVR navigation, and a
 /plugin install vapi-voice@prescriberpoint-plugins
 ```
 
+## Prerequisites
+
+### VAPI API Key (Required)
+
+This plugin requires a VAPI API key to interact with the VAPI service. Set it as an environment variable:
+
+```bash
+export VAPI_API_KEY="your-api-key-here"
+```
+
+Get your API key from: https://dashboard.vapi.ai
+
+**For persistent configuration**, add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+echo 'export VAPI_API_KEY="your-api-key-here"' >> ~/.zshrc
+```
+
+### Node.js
+
+The scripts require Node.js 18+ (for native fetch support).
+
+## Scripts
+
+The plugin includes command-line scripts for direct VAPI interaction:
+
+```
+plugins/vapi-voice/scripts/
+├── vapi-client.js       # Shared API client module
+├── create-call.js       # Create outbound calls
+├── list-calls.js        # List call history
+├── get-call.js          # Get call details
+├── create-assistant.js  # Create saved assistants
+├── list-assistants.js   # List assistants
+└── list-voices.js       # List available voices
+```
+
+### Usage Examples
+
+```bash
+# List available voices
+node scripts/list-voices.js
+node scripts/list-voices.js --provider elevenlabs
+
+# List your phone numbers
+node scripts/create-call.js --list-phone-numbers
+
+# List existing assistants
+node scripts/list-assistants.js
+
+# Create a call from config file
+node scripts/create-call.js --config call-config.json
+
+# Create a call from stdin
+echo '{"phoneNumberId":"...","customer":{"number":"+1..."},"assistantId":"..."}' | node scripts/create-call.js --stdin
+
+# Get call details
+node scripts/get-call.js <call-id>
+
+# List recent calls
+node scripts/list-calls.js --limit 10
+```
+
 ## Skills
 
 | Skill | Command | Purpose |

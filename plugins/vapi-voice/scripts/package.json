@@ -1,0 +1,16 @@
+{
+  "name": "vapi-voice-scripts",
+  "version": "1.0.0",
+  "description": "VAPI voice AI scripts for PrescriberPoint plugin",
+  "type": "module",
+  "scripts": {
+    "create-call": "node create-call.js",
+    "list-calls": "node list-calls.js",
+    "get-call": "node get-call.js",
+    "create-assistant": "node create-assistant.js",
+    "list-assistants": "node list-assistants.js",
+    "list-voices": "node list-voices.js",
+    "list-phone-numbers": "node create-call.js --list-phone-numbers"
+  },
+  "dependencies": {}
+}
