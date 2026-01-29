@@ -10,7 +10,7 @@
     "create-assistant": "node create-assistant.js",
     "list-assistants": "node list-assistants.js",
     "list-voices": "node list-voices.js",
-    "list-phone-numbers": "node create-call.js --list-phone-numbers"
+    "list-phone-numbers": "node list-phone-numbers.js"
   },
   "dependencies": {}
 }

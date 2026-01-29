@@ -36,24 +36,25 @@ The plugin includes command-line scripts for direct VAPI interaction:
 
 ```
 plugins/vapi-voice/scripts/
-├── vapi-client.js       # Shared API client module
-├── create-call.js       # Create outbound calls
-├── list-calls.js        # List call history
-├── get-call.js          # Get call details
-├── create-assistant.js  # Create saved assistants
-├── list-assistants.js   # List assistants
-└── list-voices.js       # List available voices
+├── vapi-client.js        # Shared API client module
+├── create-call.js        # Create outbound calls
+├── list-calls.js         # List call history
+├── get-call.js           # Get call details
+├── create-assistant.js   # Create saved assistants
+├── list-assistants.js    # List assistants
+├── list-voices.js        # List available voices
+└── list-phone-numbers.js # List available phone numbers
 ```
 
 ### Usage Examples
 
 ```bash
+# List your phone numbers
+node scripts/list-phone-numbers.js
+
 # List available voices
 node scripts/list-voices.js
 node scripts/list-voices.js --provider elevenlabs
-
-# List your phone numbers
-node scripts/create-call.js --list-phone-numbers
 
 # List existing assistants
 node scripts/list-assistants.js

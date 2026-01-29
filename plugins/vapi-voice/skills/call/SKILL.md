@@ -18,12 +18,12 @@ Get API key from: https://dashboard.vapi.ai
 Use these scripts in `${CLAUDE_PLUGIN_ROOT}/scripts/` to interact with VAPI:
 
 ```bash
+# List phone numbers (needed for phoneNumberId)
+node ${CLAUDE_PLUGIN_ROOT}/scripts/list-phone-numbers.js
+
 # List available voices (to help select voice for assistant)
 node ${CLAUDE_PLUGIN_ROOT}/scripts/list-voices.js
 node ${CLAUDE_PLUGIN_ROOT}/scripts/list-voices.js --provider elevenlabs
-
-# List phone numbers (needed for phoneNumberId)
-node ${CLAUDE_PLUGIN_ROOT}/scripts/create-call.js --list-phone-numbers
 
 # List existing assistants
 node ${CLAUDE_PLUGIN_ROOT}/scripts/list-assistants.js
